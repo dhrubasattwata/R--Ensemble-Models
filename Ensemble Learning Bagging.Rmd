@@ -1,0 +1,252 @@
+---
+title: "Ensemble Learning: Bagging"
+author: "Dhrubasattwata Roy Choudhury"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Ensemble Models: Introduction
+
+Ensemble models in machine learning also operate on a similar manner. They combine the decisions from multiple models to improve the overall performance. The objective of this article is to introduce the concept of ensemble learning and understand algorithms like bagging and random forest which use a similar technique. 
+
+Ensemble methods aim at improving the predictive performance of a given statistical learning or model ﬁtting technique. The general principle of ensemble methods is to construct a linear combination of some model ﬁtting method, instead of using a single ﬁt of the method. 
+
+An ensemble is itself a supervised learning algorithm, because it can be trained and then used to make predictions. Ensemble methods combine several decision trees classifiers to produce better predictive performance than a single decision tree classifier. The main principle behind the ensemble model is that a group of weak learners come together to form a strong learner, thus increasing the accuracy of the model.When we try to predict the target variable using any machine learning technique, the main causes of difference in actual and predicted values are noise, variance, and bias. Ensemble helps to reduce these factors (except noise, which is irreducible error). The noise-related error is mainly due to noise in the training data and can't be removed. However, the errors due to bias and variance can be reduced.
+The total error can be expressed as follows: 
+
+Total Error = Bias + Variance + Irreducible Error   
+
+The goal of ensemble algorithms is to combine the predictions of several base estimators built with a given learning algorithm in order to improve generalizability / robustness over a single estimator. 
+
+There are two families of ensemble methods which are usually distinguished:   
+
+1. Averaging methods. The driving principle is to build several estimators independently and then to average their predictions. On average, the combined estimator is usually better than any of the single base estimator because its variance is reduced.    
+Examples: Bagging methods (Bootstrap, AGGregation), Forests of randomized trees.    
+2. Boosting methods. Base estimators are built sequentially and one tries to reduce the bias of the combined estimator. The motivation is to combine several weak models to produce a powerful ensemble.  
+Examples: AdaBoost, Gradient Tree Boosting.
+
+Basic Ensemble Techniques   
+1. Max Voting: Max-voting is one of the simplest ways of combining predictions from multiple machine learning algorithms. Each base model makes a prediction and votes for each sample. The sample class with the highest votes is considered in the final predictive class. It is mainly used for classification problems.    
+2. Averaging: Averaging can be used while estimating the probabilities in classification tasks. But it is usually used for regression problems. Predictions are extracted from multiple models and an average of the predictions are used to make the final prediction.   
+3. Weighted Average: Like averaging, weighted averaging is also used for regression tasks. Alternatively, it can be used while estimating probabilities in classification problems. Base learners are assigned different weights, which represent the importance of each model in the prediction.   
+
+Bagging tries to implement similar learners on small sample populations and then takes a mean of all the predictions. 
+
+It combines Bootstrapping and Aggregation to form one ensemble model. Reduces the variance error and helps to avoid overfitting.   
+Bagging algorithms include: 1. Bagging meta-estimator, 2. Random forest 
+
+Why use ensemble models?   
+Ensemble models help in improving algorithm accuracy as well as the robustness of a model. Both Bagging and Boosting should be known by data scientists and machine learning engineers and especially people who are planning to attend data science/machine learning interviews.
+
+Bagging and Boosting decrease the variance of your single estimate as they combine several estimates from different models. So the result may be a model with higher stability.   
+
+If the problem is that the single model gets a very low performance, Bagging will rarely get a better bias. However, Boosting could generate a combined model with lower errors as it optimizes the advantages and reduces pitfalls of the single model.   
+
+By contrast, if the difficulty of the single model is overfitting, then Bagging is the best option. Boosting for its part doesn’t help to avoid over-fitting; in fact, this technique is faced with this problem itself. For this reason, Bagging is effective more often than Boosting. In this article we will discuss about Bagging, we will cover Boosting in the next post. But first, let us look into the very important concept of bootstrapping.  
+
+
+What is Random Forest algorithm?   
+Random forest is like bootstrapping algorithm with Decision tree (CART) model. Suppose we have 1000 observations in the complete population with 10 variables. Random forest will try to build multiple CART along with different samples and different initial variables. It will take a random sample of 100 observations and then chose 5 initial variables randomly to build a CART model. It will go on repeating the process say about 10 times and then make a final prediction on each of the observations. Final prediction is a function of each prediction. This final prediction can simply be the mean of each prediction.   
+
+The random forest is a model made up of many decision trees. Rather than just simply averaging the prediction of trees (which we could call a “forest”), this model uses two key concepts that gives it the name random:   
+
+1. Random sampling of training data points when building trees   
+2. Random subsets of features considered when splitting nodes   
+
+How the Random Forest Algorithm Works   
+The basic steps involved in performing the random forest algorithm are mentioned below:   
+
+1. Pick N random records from the dataset.   
+2. Build a decision tree based on these N records.   
+3. Choose the number of trees you want in your algorithm and repeat steps 1 and 2.    
+4. In case of a regression problem, for a new record, each tree in the forest predicts a value for Y (output). The final value can be calculated by taking the average of all the values predicted by all the trees in the forest. Or, in the case of a classification problem, each tree in the forest predicts the category to which the new record belongs. Finally, the new record is assigned to the category that wins the majority vote. 
+
+### Import the packages
+```{r}
+library(dplyr)       # for data wrangling
+library(ggplot2)     # for awesome plotting
+library(doParallel)  # for parallel backend to foreach
+library(foreach)     # for parallel processing with for loops
+
+library(caret)       # for general model fitting
+library(rpart)       # for fitting decision trees
+library(ipred)       # for fitting bagged decision trees
+library(AmesHousing) # for dataset
+library(rsample)     # for train-test split
+```
+
+### Datset and Train-Test Split
+
+
+```{r}
+### Dataset and Train-Test Split
+ames <- AmesHousing::make_ames()
+# Stratified sampling with the rsample package
+set.seed(123)
+split <- initial_split(ames, prop = 0.8, strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test   <- testing(split)
+
+```
+
+### Setting up the model
+
+The bagging() function comes from the ipred package and we use nbagg to control how many iterations to include in the bagged model and coob = TRUE indicates to use the OOB error rate.
+
+```{r}
+# make bootstrapping reproducible
+set.seed(123)
+
+# train bagged model
+ames_bag1 <- bagging(
+  formula = Sale_Price ~ .,
+  data = ames_train,
+  nbagg = 100,  
+  coob = TRUE,
+  control = rpart.control(minsplit = 2, cp = 0)
+)
+
+ames_bag1
+
+```
+
+To see RMSE over different nbagg, we will iterate the process and plot the RMSE, for optimal number of stabilizing trees. Remember this will take a long long time.
+```{r}
+#rmse <- c()
+### to find stabilizing tree
+#for (i in 1:100){
+#  bag <- bagging(
+#    formula = Sale_Price ~ .,
+#    data = ames_train,
+#    nbagg = i,  
+#    coob = TRUE,
+#    control = rpart.control(minsplit = 2, cp = 0)
+#  )
+#  rmse[i] <- bag$err
+#}
+#plot(rmse, type="l",col="darkgreen")
+```
+
+## Parallel Computing
+Bagging can become computationally intense as the number of iterations increases. Fortunately, the process of bagging involves fitting models to each of the bootstrap samples which are completely independent of one another. This means that each model can be trained in parallel and the results aggregated in the end for the final model. Consequently, if you have access to a large cluster or number of cores, you can more quickly create bagged ensembles on larger data sets.
+
+```{r}
+# Create a parallel socket cluster
+cl <- makeCluster(8) # use 8 workers
+registerDoParallel(cl) # register the parallel backend
+
+# Fit trees in parallel and compute predictions on the test set
+predictions <- foreach(
+  icount(160), 
+  .packages = "rpart", 
+  .combine = cbind
+  ) %dopar% {
+    # bootstrap copy of training data
+    index <- sample(nrow(ames_train), replace = TRUE)
+    ames_train_boot <- ames_train[index, ]  
+  
+    # fit tree to bootstrap copy
+    bagged_tree <- rpart(
+      Sale_Price ~ ., 
+      control = rpart.control(minsplit = 2, cp = 0),
+      data = ames_train_boot
+      ) 
+    
+    predict(bagged_tree, newdata = ames_test)
+}
+
+predictions[1:5, 1:7]
+```
+
+Plot the RMSE as additional trees are added. This also illustrates how the OOB error closely approximates the test error.
+
+```{r}
+predictions %>%
+  as.data.frame() %>%
+  mutate(
+    observation = 1:n(),
+    actual = ames_test$Sale_Price) %>%
+  tidyr::gather(tree, predicted, -c(observation, actual)) %>%
+  group_by(observation) %>%
+  mutate(tree = stringr::str_extract(tree, '\\d+') %>% as.numeric()) %>%
+  ungroup() %>%
+  arrange(observation, tree) %>%
+  group_by(observation) %>%
+  mutate(avg_prediction = cummean(predicted)) %>%
+  group_by(tree) %>%
+  summarize(RMSE = RMSE(avg_prediction, actual)) %>%
+  ggplot(aes(tree, RMSE)) +
+  geom_line() +
+  xlab('Number of trees')
+
+```
+
+Stop Parallel Computing
+```{r}
+stopCluster(cl)
+```
+
+```{r}
+unregister <- function() {
+  env <- foreach:::.foreachGlobals
+  rm(list=ls(name=env), pos=env)
+}
+unregister()
+```
+
+### Using CARET Package for Feature Implementation
+Apply bagging within caret and use 10-fold CV to see how well our ensemble will generalize. We see that the cross-validated RMSE for 200 trees. But this is a very computationally exhaustive function.
+
+```{r}
+ames_bag2 <- train(
+  Sale_Price ~ .,
+  data = ames_train,
+  method = "treebag",
+  trControl = trainControl(method = "cv", number = 5),
+  nbagg = 200,  
+  control = rpart.control(minsplit = 2, cp = 0)
+)
+ames_bag2
+
+```
+
+### Feature interpretation
+
+Unfortunately, due to the bagging process, models that are normally perceived as interpretable are no longer so. However, we can still make inferences about how features are influencing our model. 
+
+For each tree, we compute the sum of the reduction of the loss function across all splits. We then aggregate this measure across all trees for each feature. The features with the largest average decrease in SSE (for regression) are considered most important. Unfortunately, the ipred package does not capture the required information for computing variable importance but the caret package does. In the code chunk below, we use vip to construct a variable importance plot (VIP) of the top 40 features in the ames_bag2 model.
+
+```{r}
+library(vip)
+vip::vip(ames_bag2, num_features = 40, bar = FALSE)
+```
+Understanding the relationship between a feature and predicted response for bagged models follows the same procedure we’ve seen in previous chapters. PDPs tell us visually how each feature influences the predicted output, on average. Although the averaging effect of bagging diminishes the ability to interpret the final ensemble, PDPs and other interpretability methods help us to interpret any “black box” model.
+
+```{r}
+# Construct partial dependence plots
+library(pdp)
+p1 <- pdp::partial(
+  ames_bag2, 
+  pred.var = "Lot_Area",
+  grid.resolution = 20
+  ) %>% 
+  autoplot()
+
+p2 <- pdp::partial(
+  ames_bag2, 
+  pred.var = "Lot_Frontage", 
+  grid.resolution = 20
+  ) %>% 
+  autoplot()
+
+gridExtra::grid.arrange(p1, p2, nrow = 1)
+```
+
+
+### Conclusion
+Bagging improves the prediction accuracy for high variance (and low bias) models at the expense of interpretability and computational speed. However, using various interpretability algorithms such as VIPs and PDPs, we can still make inferences about how our bagged model leverages feature information. Also, since bagging consists of independent processes, the algorithm is easily parallelizable.
+
+However, when bagging trees, a problem still exists. Although the model building steps are independent, the trees in bagging are not completely independent of each other since all the original features are considered at every split of every tree. Rather, trees from different bootstrap samples typically have similar structure to each other (especially at the top of the tree) due to any underlying strong relationships.
